@@ -1,0 +1,5 @@
+# Copy to .local/instance.toml. The instance name is `<agent>-<label><N>`,
+# the label being the host; it names this instance's own Zulip channel and
+# its `intro-<name>` topic. The account's display name (`archsage`) is a
+# separate, provisioning-time choice and is what the mention uses.
+name = "archsage-agstudio1"

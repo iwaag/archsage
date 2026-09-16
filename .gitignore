@@ -1,0 +1,7 @@
+.local/
+.venv/
+__pycache__/
+# Every sage's knowledge tree is a clone of a study's published repository,
+# refreshed by service/sync_knowledge.sh; its study queue is local state.
+sages/*/mainstudy/
+sages/*/tostudy/

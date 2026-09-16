@@ -1,0 +1,7 @@
+# One sage: a name, one line about its domain, and the study whose
+# published knowledge is its tree. `mainstudy/` beside this file is the
+# clone (ignored; `service/sync_knowledge.sh` refreshes it) and `guide.md`
+# the domain guide. Nothing else makes a sage.
+name = "arxiv"
+about = "arXiv papers published by study-arxiv-trend: recent trending papers from any field of research, their summaries, run manuals and local-test records"
+study = "https://github.com/iwaag/study-arxiv-trend.git"
