@@ -30,6 +30,7 @@ from agag.argue import (
 )
 from agag.entrance import EMPTY_REPLY
 from agag.selfnote import is_speech
+from agag.reply import REPLY_GUIDE, repair_with, resolve_reply
 from agag.topics import (
     TopicResult,
     chatlog_path,
@@ -92,14 +93,24 @@ def serve(context) -> TopicResult:
         context.step = sage.selector
         prompt = "\n".join([chatlog_placement(context.bot_name),
                             f"You are taking part as the logical participant {sage.selector!r}.",
-                            "", conversation, "", sage_context(sage)])
-        answer = run_sage(sage, prompt, workspace, extra_meta={"requested": asked}, selection=context.selection)
-        return TopicResult([with_speaker(sage.selector, answer or NO_ANSWER)])
+                            "", conversation, "", sage_context(sage), "", REPLY_GUIDE])
+        output = run_sage(sage, prompt, workspace, extra_meta={"requested": asked}, selection=context.selection)
+        # The speaker header is the posting layer's, so the reply contract
+        # (`agag.reply`) is resolved here and the header put in front of it.
+        answer, split, _ = resolve_reply(
+            output, repair_with(lambda again: run_sage(sage, again, workspace, extra_meta={"requested": asked},
+                                                       selection=context.selection), output), log=log)
+        journal = getattr(context, "journal", None)
+        if journal is not None:
+            journal.reply_outcome(marked=split.marked, blocks=split.blocks, failure=split.error or "")
+        return TopicResult([with_speaker(sage.selector, answer)])
     context.step = ARCHSAGE_ROLE
-    prompt = prompt_with_guide([chatlog_placement(context.bot_name), "", conversation], archsage_context())
-    answer = run_archsage(prompt, workspace, home=(context.channel, context.topic),
-                          extra_meta={"requested": asked}, selection=context.selection)
-    return TopicResult([answer or NO_ANSWER])
+    home = (context.channel, context.topic)
+    prompt = prompt_with_guide([chatlog_placement(context.bot_name), "", conversation], archsage_context(), reply=True)
+    output = run_archsage(prompt, workspace, home=home, extra_meta={"requested": asked}, selection=context.selection)
+    return TopicResult(output=output, repair=repair_with(
+        lambda again: run_archsage(again, workspace, home=home, extra_meta={"requested": asked},
+                                   selection=context.selection), output))
 
 
 def handle_topic(client: ZulipClient, channel: str, topic: str) -> None:

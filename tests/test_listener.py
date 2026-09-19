@@ -61,15 +61,16 @@ def wire(monkeypatch, tmp_path):
 
     def run_sage(sage, prompt, cwd, *, extra_meta=None, selection=None, timeout=None):
         runs.append(("sage", sage.name, prompt, dict(extra_meta or {})))
-        return f"{sage.name} answers"
+        return f"the sage thinks.\n\n```ag-reply\n{sage.name} answers\n```"
 
     def run_archsage(prompt, cwd, *, home=None, extra_meta=None, selection=None, timeout=None):
         runs.append(("archsage", None, prompt, dict(extra_meta or {})))
-        return "the council answers"
+        return "the council thinks.\n\n```ag-reply\nthe council answers\n```"
 
     monkeypatch.setattr(listener, "run_sage", run_sage)
     monkeypatch.setattr(listener, "run_archsage", run_archsage)
     monkeypatch.setattr(topics, "topic_write", lambda topic, text, **kw: runs.append(("reply", text)) or "success")
+    monkeypatch.setattr(topics, "deliver", lambda client, channel, topic, text, **kw: runs.append(("reply", text)) or 900)
     return runs
 
 
