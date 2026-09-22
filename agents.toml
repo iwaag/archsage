@@ -41,7 +41,7 @@ model = "anthropic/claude-sonnet-5"
 [roles.archsage]
 profile = "frontier"
 requires = []
-allowed_tools = "Read,Write,Edit,Glob,Grep,Bash(archsage:*),Bash(sagetree:*)"
+allowed_tools = "Read,Write,Edit,Glob,Grep,Bash(archsage:*),Bash(sagetree:*),Bash(agrefs:*)"
 
 # One logical sage's run. The grant is the bounded reader only: `sagetree`
 # reads, greps and lists inside the tree named by SAGETREE_ROOT and refuses
@@ -58,4 +58,4 @@ allowed_tools = "Bash(sagetree:*)"
 [roles.front]
 profile = "frontier"
 requires = []
-allowed_tools = "Read,Glob,Grep,Bash(archsage:*),Bash(sagetree:*)"
+allowed_tools = "Read,Glob,Grep,Bash(archsage:*),Bash(sagetree:*),Bash(agrefs:*)"
