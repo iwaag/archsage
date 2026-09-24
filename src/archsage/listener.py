@@ -19,6 +19,7 @@ sage from inside its own run (`archsage ask`) instead.
 
 from __future__ import annotations
 
+from agag.post import REPORT, PostMeta
 from agag.agent import SWEEP_ACK as ACK_TEXT, exec_options_for, is_ack, listener_main
 from agag.argue import (
     Invitation,
@@ -89,7 +90,7 @@ def serve(context) -> TopicResult:
     if selector:
         sage = sage_named(selector.split(":", 1)[1])
         if sage is None:
-            return TopicResult([_unknown(selector)])
+            return TopicResult([_unknown(selector)], meta=PostMeta(intent=REPORT))
         context.step = sage.selector
         prompt = "\n".join([chatlog_placement(context.bot_name),
                             f"You are taking part as the logical participant {sage.selector!r}.",
@@ -103,7 +104,10 @@ def serve(context) -> TopicResult:
         journal = getattr(context, "journal", None)
         if journal is not None:
             journal.reply_outcome(marked=split.marked, blocks=split.blocks, failure=split.error or "")
-        return TopicResult([with_speaker(sage.selector, answer)])
+        # What the sage's reply is for rides with it, as the listener's own
+        # reply would (`agag.post`); a failed reply is a report.
+        return TopicResult([with_speaker(sage.selector, answer)],
+                           meta=split.meta if split.ok else PostMeta(intent=REPORT))
     context.step = ARCHSAGE_ROLE
     home = (context.channel, context.topic)
     prompt = prompt_with_guide([chatlog_placement(context.bot_name), "", conversation], archsage_context(), reply=True)
