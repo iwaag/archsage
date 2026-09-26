@@ -48,7 +48,7 @@ REPLACED_TREES = ROOT / ".local" / "replaced-trees"
 
 __all__ = [
     "EMPTY_REVISION", "NAME_RE", "SOURCES", "Sage", "SageError", "SyncResult", "add_sage", "attach_study",
-    "findings", "knowledge_revision", "load_sages", "sage_named", "selector_of", "selectors", "sync_sage",
+    "findings", "knowledge_revision", "load_sages", "remove_sage", "sage_named", "selector_of", "selectors", "sync_sage",
     "update_sage", "write_definition",
 ]
 
@@ -245,8 +245,24 @@ def attach_study(name: str, *, project: str, source: str = "main", repository: s
                             f"({head.get('error') or head.get('repository') or 'unknown'}): is its setup finished? "
                             f"(`agproject status {project}`)")
         repository = str(head["repository"])
+    reached = _git(None, "ls-remote", "--heads", repository, timeout=60)
+    if reached.returncode != 0:
+        raise SageError(f"{repository} cannot be read ({(reached.stderr or reached.stdout).strip()[:200]}); "
+                        f"{sage.name} stays attached to {sage.describe_source()}")
     write_definition(sage.root, sage.name, sage.about, study=repository, project=project, source=source)
     return _read(sage.root)  # type: ignore[return-value]
+
+
+def remove_sage(name: str, *, root: Path | None = None) -> Path:
+    """Retire a sage: its directory (definition, tree, queue) is moved to
+    `.local/removed-sages/`, nothing is deleted."""
+    sage = sage_named(name, root)
+    if sage is None:
+        raise SageError(f"no sage named {name!r}")
+    aside = ROOT / ".local" / "removed-sages" / f"{sage.name}-{time.strftime('%Y%m%d-%H%M%S')}"
+    aside.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(sage.root), aside)
+    return aside
 
 
 @dataclass(frozen=True)
@@ -285,17 +301,28 @@ def sync_sage(sage: Sage, *, timeout: float = 300) -> SyncResult:
     if not sage.study:
         return SyncResult(sage.name, before, before, sage.findings(), note="no study attached: the tree stays as it is")
     replaced = ""
-    if sage.tree.exists():
-        origin = _origin(sage.tree) if (sage.tree / ".git").is_dir() else ""
-        if origin != sage.study:
-            REPLACED_TREES.mkdir(parents=True, exist_ok=True)
-            aside = REPLACED_TREES / f"{sage.name}-{time.strftime('%Y%m%d-%H%M%S')}"
-            shutil.move(str(sage.tree), aside)
-            replaced = f"replaced the tree from {origin or 'no repository'} (kept at {aside.name})"
-    if (sage.tree / ".git").is_dir():
-        fetched = _git(sage.tree, "fetch", "--quiet", "origin", timeout=timeout)
-        done = fetched if fetched.returncode != 0 else _git(sage.tree, "merge", "--ff-only", "--quiet", "@{u}",
-                                                            timeout=timeout)
+    origin = _origin(sage.tree) if (sage.tree / ".git").is_dir() else ""
+    if sage.tree.exists() and origin != sage.study:
+        # Another repository than the definition names: clone the new one
+        # beside it and swap only when that worked, so a failure keeps the tree.
+        fresh = sage.root / "mainstudy.new"
+        if fresh.exists():
+            shutil.rmtree(fresh)
+        done = _git(None, "clone", "--quiet", sage.study, str(fresh), timeout=timeout)
+        if done.returncode != 0:
+            shutil.rmtree(fresh, ignore_errors=True)
+            raise SageError(f"refresh of {sage.name} from {sage.study} failed: "
+                            f"{(done.stderr or done.stdout).strip()[:400]}; the tree stays at {before}"
+                            f" (still the clone of {origin or 'nothing'})")
+        REPLACED_TREES.mkdir(parents=True, exist_ok=True)
+        aside = REPLACED_TREES / f"{sage.name}-{time.strftime('%Y%m%d-%H%M%S')}"
+        shutil.move(str(sage.tree), aside)
+        fresh.rename(sage.tree)
+        replaced = f"replaced the tree from {origin or 'no repository'} (kept at {aside.name})"
+    elif (sage.tree / ".git").is_dir():
+        done = _git(sage.tree, "fetch", "--quiet", "origin", timeout=timeout)
+        if done.returncode == 0:
+            done = _git(sage.tree, "merge", "--ff-only", "--quiet", "@{u}", timeout=timeout)
     else:
         done = _git(None, "clone", "--quiet", sage.study, str(sage.tree), timeout=timeout)
     if done.returncode != 0:

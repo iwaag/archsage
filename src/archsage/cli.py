@@ -5,6 +5,7 @@
     archsage sage update <name> [--about "…"] [--guide-file <path>]
     archsage sage attach <name> --project <slug> [--source main|publish] [--repository <url>]
     archsage sage sync [<name>]
+    archsage sage remove <name>
     archsage ask <name> "<question>"
     archsage queue list [<name>] | show <name> <note> | resolve <name> <note> --answered-by <path>…
     archsage intro
@@ -49,7 +50,7 @@ from . import store
 from .instance import SPEC
 from .queue import note_path, resolve_note
 from .roles import RoleError, run_sage, sage_context
-from .sages import SOURCES, SageError, add_sage, attach_study, load_sages, sage_named, sync_sage, update_sage
+from .sages import SOURCES, SageError, add_sage, attach_study, load_sages, remove_sage, sage_named, sync_sage, update_sage
 
 ASK_CHANNEL = "archsage-internal"
 
@@ -156,6 +157,13 @@ def cmd_sage_attach(args, out) -> int:
     return _after_change(sage, "Attach", args, out)
 
 
+def cmd_sage_remove(args, out) -> int:
+    sage = _sage(args.name)
+    aside = remove_sage(args.name)
+    print(f"removed {sage.selector}; its directory is kept at {aside}", file=out)
+    return _after_change(sage, "Remove", args, out)
+
+
 def cmd_sage_sync(args, out) -> int:
     sages = [_sage(args.name)] if args.name else load_sages()
     failed = 0
@@ -254,6 +262,10 @@ def build_parser() -> argparse.ArgumentParser:
     attach.add_argument("--repository", default="", help="required for publish; default for main is the study's own")
     attach.add_argument("--no-intro", action="store_true")
     attach.set_defaults(run=cmd_sage_attach)
+    remove = sage_sub.add_parser("remove", help="retire a sage (its directory is moved aside, not deleted)")
+    remove.add_argument("name")
+    remove.add_argument("--no-intro", action="store_true")
+    remove.set_defaults(run=cmd_sage_remove)
     sync = sage_sub.add_parser("sync", help="clone or fast-forward the trees (replaces a tree from another repository)")
     sync.add_argument("name", nargs="?", default=None)
     sync.set_defaults(run=cmd_sage_sync)

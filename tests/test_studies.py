@@ -94,6 +94,17 @@ def test_reattaching_replaces_the_tree_and_a_failed_refresh_keeps_it(tmp_path, r
     with pytest.raises(sages.SageError, match=f"the tree stays at {kept}"):
         sages.sync_sage(sage)
     assert sage.revision() == kept
+    # A new source that cannot be cloned never costs the tree it replaces
+    # (live probe: the old tree had been moved aside before the clone failed).
+    third, _ = study_repo(tmp_path, "third", {"third.md": "x"})
+    sage = sages.attach_study("aqua", project="aqua3", source="publish", repository=str(third))
+    shutil.rmtree(third)
+    with pytest.raises(sages.SageError, match=f"the tree stays at {kept}"):
+        sages.sync_sage(sage)
+    assert sage.revision() == kept and (sage.tree / "new.md").exists()
+    with pytest.raises(sages.SageError, match="cannot be read"):
+        sages.attach_study("aqua", project="aqua4", source="publish", repository=str(tmp_path / "nowhere.git"))
+    assert sages.sage_named("aqua").project == "aqua3"
 
 
 def test_main_is_resolved_from_the_study_and_publish_needs_a_repository(tmp_path, root, monkeypatch):
@@ -105,6 +116,9 @@ def test_main_is_resolved_from_the_study_and_publish_needs_a_repository(tmp_path
         sages.attach_study("aqua", project="aqua")
     monkeypatch.setattr(agag.project, "gitea_head",
                         lambda slug, **_: {"exists": True, "repository": f"http://g/autodev/{slug}.git"})
+    real = sages._git
+    monkeypatch.setattr(sages, "_git", lambda cwd, *a, **k: subprocess.CompletedProcess(a, 0, "", "")
+                        if a[:1] == ("ls-remote",) else real(cwd, *a, **k))
     assert sages.attach_study("aqua", project="aqua").study == "http://g/autodev/aqua.git"
     with pytest.raises(sages.SageError, match="--repository"):
         sages.attach_study("aqua", project="aqua", source="publish")
@@ -147,3 +161,11 @@ def test_definitions_are_pushed_to_the_store_and_restored_from_it(tmp_path, root
     monkeypatch.setattr(sages, "SAGES_ROOT", restored)
     assert "restored" in store.restore()
     assert sages.sage_named("aqua").about == "aquaculture"
+
+
+def test_a_removed_sage_is_moved_aside_and_persisted(tmp_path, root, monkeypatch, _no_store_no_intro):
+    monkeypatch.setattr(sages, "ROOT", tmp_path)
+    sages.add_sage("aqua", "aquaculture", "# guide", root=root)
+    code, out, _ = run(["sage", "remove", "aqua", "--no-intro"])
+    assert code == 0 and sages.sage_named("aqua") is None and "kept at" in out
+    assert _no_store_no_intro["persist"] == ["Remove sage:aqua"] and _no_store_no_intro["intro"] == 0
