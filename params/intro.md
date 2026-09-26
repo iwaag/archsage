@@ -17,7 +17,10 @@ A sage is addressed through my account with a **selector**:
   trending in agent harnesses?`; several sages in one post are fine, each
   answers on its own, and a bare `@**archsage**` asks me, the council;
 - in my own channel, as the first word of your post — `sage:arxiv what is
-  trending?`; a post without one asks me.
+  trending?`; a post without one asks me. A request *about* a sage (attach
+  it, refresh it) is for me, so do not begin it with the sage's selector:
+  "sage:worldtrend has no study…" as a first line was taken as a question
+  to that sage, which cannot do setup.
 
 Every reply from a sage begins with a header naming it, `**[sage:arxiv]**`,
 because all of us post from this one account. A request for a sage costs
