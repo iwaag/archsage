@@ -52,15 +52,24 @@ class RoleError(RuntimeError):
     """One run could not complete."""
 
 
+def _tree_state(sage: Sage) -> str:
+    if not sage.has_knowledge():
+        return "with an EMPTY tree (no study attached, or nothing synced yet)"
+    found = sage.findings()
+    return (f"at revision {sage.revision()}, {found} knowledge file(s)" if found
+            else f"at revision {sage.revision()} with NO FINDINGS yet (only the study's plan, READMEs and indexes)")
+
+
 def sages_placement(sages: list[Sage] | None = None) -> str:
-    """One paragraph naming every sage, its domain, its tree and revision."""
+    """One paragraph naming every sage, its domain, its study, its tree and its queue."""
     sages = load_sages() if sages is None else sages
     if not sages:
         return f"There are no sages yet. New ones are defined under {SAGES_ROOT} (`archsage sage add`)."
-    lines = [f"The sages live under {SAGES_ROOT}; each is a directory holding sage.toml, guide.md and mainstudy/ (its knowledge tree):"]
+    lines = [f"The sages live under {SAGES_ROOT}; each is a directory holding sage.toml, guide.md, mainstudy/ "
+             "(its knowledge tree) and tostudy/ (its study queue):"]
     for sage in sages:
-        state = f"at revision {sage.revision()}" if sage.has_knowledge() else "with an EMPTY tree (its study has published nothing yet)"
-        lines.append(f"- {sage.selector}: {sage.about} — {sage.tree} {state}")
+        lines.append(f"- {sage.selector}: {sage.about} — {sage.describe_source()}; tree {sage.tree} "
+                     f"{_tree_state(sage)}; {len(sage.queued())} queued question(s)")
     return "\n".join(lines)
 
 
@@ -68,9 +77,15 @@ def sage_context(sage: Sage) -> str:
     """What one sage is told about itself: the shared sage guide, its domain
     guide, and the state of its tree."""
     shared = read_guide(GUIDES, SAGE_ROLE, "guide.md")
-    state = (f"Your knowledge tree is at revision {sage.revision()}." if sage.has_knowledge()
-             else "Your knowledge tree is EMPTY: your study has not published anything yet. Say so, explain what "
-                  "the study is meant to gather, and queue what was asked; do not invent findings.")
+    if not sage.has_knowledge():
+        state = ("Your knowledge tree is EMPTY: no study is attached to you yet, or nothing has been synced. Say "
+                 "so, explain what a study would have to gather, and queue what was asked; do not invent findings.")
+    elif not sage.findings():
+        state = (f"Your knowledge tree is at revision {sage.revision()} but holds NO FINDINGS yet — only the study's "
+                 "plan, READMEs and indexes. Say so, say what the plan intends to find, and queue what was asked; "
+                 "do not present the plan as findings.")
+    else:
+        state = f"Your knowledge tree is at revision {sage.revision()} ({sage.describe_source()})."
     return f"{shared}\n\n# Your domain\n\n{sage.guide()}\n\n{state}"
 
 

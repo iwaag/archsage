@@ -3,7 +3,7 @@
 The knowledge council of the `agdev` realm: **one deployed agent, one Zulip
 account, many logical sages**. archsage (the frontier model) designs the
 knowledge and research a desire needs and can inspect every sage's tree;
-each sage (the ordinary model) answers from the published knowledge tree of
+each sage (the ordinary model) answers from the knowledge tree of
 one study, cites what it read, and says when the tree does not answer.
 
 ## Layout
@@ -12,16 +12,34 @@ one study, cites what it read, and says when the tree does not answer.
 agents.toml                 profiles: frontier (archsage), sonnet (every sage); roles: archsage, sage
 agent/guides/archsage/      archsage's guide
 agent/guides/sage/          the shared execution guide every sage runs with
-sages/<name>/sage.toml      name, one line about the domain, the study repository ("" = none yet)
+sages/                      ignored here: a checkout of the definitions store (below)
+sages/<name>/sage.toml      name, one line about the domain, project, source (main|publish), study repository
 sages/<name>/guide.md       the sage's domain guide
-sages/<name>/mainstudy/     ignored: the clone of the study's published knowledge (service/sync_knowledge.sh)
-sages/<name>/tostudy/       ignored: the sage's study queue
+sages/<name>/mainstudy/     local: the clone of the study's knowledge (`archsage sage sync`)
+sages/<name>/tostudy/       local: the sage's study queue
 src/archsage/               listener, roles, sages, the `archsage` and `sagetree` CLIs
 ```
 
 A sage is nothing but the two files and the tree. Adding a domain is
-`archsage sage add <name> --about "…" --guide-file guide.md [--study <url>]`
-plus a re-post of the introduction; no listener and no account is added.
+`archsage sage add <name> --about "…" --guide-file guide.md [--project <slug>]`;
+`archsage sage attach <name> --project <slug> [--source main|publish]`
+gives an existing sage a study and syncs its tree; `archsage sage sync`
+refreshes it after research. No listener and no account is added.
+
+**Which repository a sage reads.** `main` — the study's internal knowledge
+repository — is the default: it is current as soon as research is
+integrated and needs no public repository or human push. `publish` is a
+public repository the developer supplied and pushes by hand after review;
+a sage reading it lags behind that review (arxiv reads `study-arxiv-trend`
+this way on purpose).
+
+**Where definitions live.** They are written at runtime and carry internal
+repository URLs, so they are not in this repository: `sages/` is a checkout
+of a private repository on the internal Gitea, configured in the ignored
+`.local/sages-store.toml` (`url`, `token_file`, `username`, `author`).
+Every `add`, `update` and `attach` commits and pushes there and re-posts
+the introduction. To rebuild a machine: write that file, `archsage store
+restore`, then `archsage sage sync`.
 
 ## Addressing
 
@@ -53,6 +71,7 @@ writes sage definitions under `sages/`.
 
 ```
 uv sync
+archsage store restore             # the sage definitions (needs .local/sages-store.toml)
 service/sync_knowledge.sh          # clone/refresh every sage's tree
 uv run python -m archsage.intro    # publish the sages and the addressing syntax
 service/listen.sh                  # or the launchd template in service/

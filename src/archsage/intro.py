@@ -19,10 +19,14 @@ def sages_lines() -> str:
     sages = load_sages()
     if not sages:
         return "- (no sages defined yet)"
-    return "\n".join(
-        f"- `{sage.selector}` — {sage.about}" + ("" if sage.has_knowledge() else " *(empty tree: its study has published nothing yet)*")
-        for sage in sages
-    )
+    def state(sage) -> str:
+        if not sage.study:
+            return " *(no study attached yet)*"
+        if not sage.has_knowledge() or not sage.findings():
+            return f" *(study `{sage.project or '?'}`: no findings yet)*"
+        return f" *(study `{sage.project}`)*" if sage.project else ""
+
+    return "\n".join(f"- `{sage.selector}` — {sage.about}{state(sage)}" for sage in sages)
 
 
 def main() -> str:

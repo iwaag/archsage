@@ -8,7 +8,7 @@ chosen at provisioning time; the roster block in the introduction says so.
 
 One deployed agent, one Zulip account, many logical **sages**: each is a
 directory under `sages/` with a `sage.toml`, a domain `guide.md` and the
-clone of its study's published knowledge (`mainstudy/`). archsage owns all
+clone of its study's knowledge repository (`mainstudy/`). archsage owns all
 of them and is the only thing that reads across them.
 """
 

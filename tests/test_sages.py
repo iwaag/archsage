@@ -27,8 +27,7 @@ def test_sages_are_found_by_name_with_their_selectors(tmp_path, monkeypatch):
     assert sages.sage_named("nobody") is None
     assert a.has_knowledge() and not b.has_knowledge()
     assert b.revision() == "empty" and a.revision() == "unavailable"  # a tree without git
-    assert (a.root / "sage.toml").read_text(encoding="utf-8") == (
-        'name = "arxiv"\nabout = "arXiv papers"\nstudy = "https://example/a.git"\n')
+    assert sages._read(a.root) == a and a.study == "https://example/a.git" and a.project == "" and a.source == ""
 
 
 @pytest.mark.parametrize("name", ["Arxiv", "a b", "", "1x"])

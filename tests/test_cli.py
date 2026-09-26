@@ -21,10 +21,12 @@ def test_add_then_list_shows_the_new_domain_with_an_empty_tree(tmp_path, monkeyp
     guide = tmp_path / "guide.md"
     guide.write_text("# Aquaculture\nRead sources/ first.\n", encoding="utf-8")
     code, out, _ = run(["sage", "add", "aquaculture", "--about", "aquaculture and closed-loop food systems", "--guide-file", str(guide)])
-    assert code == 0 and "defined sage:aquaculture" in out and "empty" in out and "re-post" in out
+    assert code == 0 and "defined sage:aquaculture" in out and "no study yet" in out
+    assert "definitions store: abc123" in out and "introduction re-posted" in out
     assert (root / "aquaculture" / "guide.md").read_text(encoding="utf-8").startswith("# Aquaculture")
     code, out, _ = run(["sage", "list"])
-    assert code == 0 and out.strip() == "sage:aquaculture: aquaculture and closed-loop food systems [empty tree]"
+    assert code == 0 and out.strip() == ("sage:aquaculture: aquaculture and closed-loop food systems "
+                                         "[empty tree; 0 queued] — no study attached")
     code, _, err = run(["sage", "add", "aquaculture", "--about", "again", "--guide", "x"])
     assert code == 1 and "already exists" in err
 

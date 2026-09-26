@@ -71,7 +71,7 @@ def _empty(root: Path) -> bool:
 def cmd_ls(args, out) -> int:
     root = _root()
     if _empty(root):
-        print("(the tree is empty: this sage's study has published nothing yet)", file=out)
+        print("(the tree is empty: no study knowledge is attached or synced yet)", file=out)
         return 0
     target = inside(root, args.path)
     if not target.is_dir():
