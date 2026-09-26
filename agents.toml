@@ -35,13 +35,17 @@ model = "anthropic/claude-sonnet-5"
 
 # archsage itself: research design, synthesis, the council's own answers.
 # Broad access is explicit here: it reads every sage's tree directly, asks a
-# sage in-process (`archsage ask`), and defines a new sage and its guide
-# (`archsage sage add`). `Write`/`Edit` are for the guides it writes under
-# `sages/`; the tool `sagetree` is the same bounded reader the sages use.
+# sage in-process (`archsage ask`), defines and maintains sages (`archsage
+# sage …`), and establishes the studies they read (sage p2): `agproject`
+# opens or continues a study's channel, plan and workspace request (the
+# channel with the provisioner credential its process is given), `agroutine`
+# registers the study's routine and posts its guide, `agentchat` talks to
+# the agents it delegates to. `Write`/`Edit` are for the documents it
+# writes; `sagetree` is the same bounded reader the sages use.
 [roles.archsage]
 profile = "frontier"
 requires = []
-allowed_tools = "Read,Write,Edit,Glob,Grep,Bash(archsage:*),Bash(sagetree:*),Bash(agrefs:*)"
+allowed_tools = "Read,Write,Edit,Glob,Grep,Bash(archsage:*),Bash(sagetree:*),Bash(agrefs:*),Bash(agproject:*),Bash(agroutine:*),Bash(agentchat:*)"
 
 # One logical sage's run. The grant is the bounded reader only: `sagetree`
 # reads, greps and lists inside the tree named by SAGETREE_ROOT and refuses

@@ -4,7 +4,10 @@ Pinned: a leading `sage:<name>` in the own channel, or a selector after the
 mention in an argue, is answered by that sage with its header and costs no
 archsage run; a bare post or mention is archsage; two sages invited in one
 post each get their own context and keep their own identity; a name nobody
-publishes is refused without a run; a mention outside an argue is left.
+publishes is refused without a run; a mention outside an argue is left
+unless a root note of ours makes it a callback (sage p2): then the home
+conversation is served with the calling topic as a thread, the reply goes
+home, and a reply that only reports progress names nobody.
 """
 
 from __future__ import annotations
@@ -44,6 +47,11 @@ class Client:
 
     def add_reaction(self, message_id, emoji_name="eyes"):
         self.calls.append(("react", message_id))
+
+    def own_rootchat_notes(self, num_before=0):
+        return []
+
+    own_moved_notes = own_served_notes = own_rootchat_notes
 
 
 def two_sages(tmp_path, monkeypatch):
@@ -99,8 +107,9 @@ def test_a_direct_sage_request_costs_no_archsage_run(monkeypatch, tmp_path):
     assert name == "arxiv" and "# arXiv guide" in prompt and "# realworld guide" not in prompt
     assert meta == {"requested": 100}
     replies = [r[1] for r in runs if r[0] == "reply"]
-    assert replies[-1] == "**[sage:arxiv]**\narxiv answers"
-    assert not any(reply.startswith("@**") for reply in replies)
+    # The turn is the asker's again: the reply names them (sage p2 — an agent
+    # that asked is called back with the answer).
+    assert replies[-1] == "@**Developer**\n\n**[sage:arxiv]**\narxiv answers"
 
 
 def test_a_plain_question_is_the_council_s(monkeypatch, tmp_path):
@@ -111,7 +120,7 @@ def test_a_plain_question_is_the_council_s(monkeypatch, tmp_path):
     assert kinds.count("archsage") == 1 and "sage" not in kinds
     _, _, prompt, _ = next(r for r in runs if r[0] == "archsage")
     assert "sage:arxiv" in prompt and "sage:realworld" in prompt  # it sees every tree
-    assert [r[1] for r in runs if r[0] == "reply"][-1] == "the council answers"
+    assert [r[1] for r in runs if r[0] == "reply"][-1] == "@**Developer**\n\nthe council answers"
 
 
 def test_an_unknown_sage_is_refused_without_a_run(monkeypatch, tmp_path):
@@ -120,7 +129,7 @@ def test_an_unknown_sage_is_refused_without_a_run(monkeypatch, tmp_path):
     listener.handle_topic(Client([message(content="sage:oceans tell me")]), "archsage-agstudio1", "ask-me")
     assert [r[0] for r in runs if r[0] != "reply"] == []
     reply = [r[1] for r in runs if r[0] == "reply"][-1]
-    assert reply.startswith("**[sage:oceans]**") and "sage:arxiv, sage:realworld" in reply
+    assert reply.startswith("@**Developer**\n\n**[sage:oceans]**") and "sage:arxiv, sage:realworld" in reply
 
 
 # --- an argue --------------------------------------------------------------------------
@@ -165,3 +174,108 @@ def test_the_listener_is_the_skeleton_with_the_entrance_and_the_mention_route(mo
     assert handed["spec"] is listener.SPEC and handed["routes"] == {}
     assert handed["entrance"] is listener.handle_topic and handed["on_mention"] is listener.handle_mention
     assert listener.SPEC.sweep_prefixes == ()  # only the own channel is owned
+
+
+# --- a callback (sage p2 step 2) ------------------------------------------------------
+
+
+AUTOLAB = 11
+HOME = ("archsage-agstudio1", "study-aqua")
+REMOTE = ("pj-aqua", "workplan-setup-aqua")
+
+
+class Realm(Client):
+    """Several topics, notes found by sender, messages found by id."""
+
+    def __init__(self, topics):
+        super().__init__([])
+        self.topics = {key: list(rows) for key, rows in topics.items()}
+
+    def topic_history(self, channel, topic, num_before=50):
+        return [dict(m) for m in self.topics.get((channel, topic), [])][-num_before:]
+
+    def message(self, message_id, strict=False):
+        for (channel, topic), rows in self.topics.items():
+            for row in rows:
+                if row["id"] == message_id:
+                    return {**row, "display_recipient": channel, "subject": topic, "type": "stream"}
+        return None
+
+    def _own(self, marker):
+        return [{**m, "display_recipient": c, "subject": t, "type": "stream"}
+                for (c, t), rows in self.topics.items() for m in rows
+                if m["sender_id"] == BOT and str(m["content"]).startswith(marker)]
+
+    def own_rootchat_notes(self, num_before=0):
+        return self._own("[selfnote][rootchat] ")
+
+    def own_moved_notes(self, num_before=0):
+        return self._own("[selfnote][rootchat-moved] ")
+
+    def own_served_notes(self, num_before=0):
+        return self._own("[selfnote][served] ")
+
+    def stream_id(self, name):
+        return 7
+
+    def channel_topics(self, stream_id):
+        return [t for (_, t) in self.topics]
+
+    def send_to_channel(self, channel, topic, content):
+        number = super().send_to_channel(channel, topic, content)
+        self.topics.setdefault((channel, topic), []).append(
+            {"id": number, "sender_id": BOT, "sender_full_name": "archsage", "content": content})
+        return number
+
+
+def callback_realm(answer="@**archsage** done: study layout established: `main/` = `http://g/autodev/aqua.git` at `abc1234`"):
+    return Realm({
+        HOME: [message(sender=FRONT, name="Front", id=5, topic=HOME[1],
+                       content="[selfnote][rootchat] front/front-desk-1 #4"),
+               message(sender=FRONT, name="Front", id=6, topic=HOME[1],
+                       content="@**archsage** please establish a study on aquaculture"),
+               message(sender=BOT, name="archsage", id=8, topic=HOME[1],
+                       content="Asked autolab for the workspace; I continue when it answers.")],
+        REMOTE: [message(sender=BOT, name="archsage", id=20, topic=REMOTE[1],
+                         content="[selfnote][rootchat] archsage-agstudio1/study-aqua #6"),
+                 message(sender=BOT, name="archsage", id=21, topic=REMOTE[1], content="Please prepare …"),
+                 message(sender=AUTOLAB, name="autolab-agstudio1", id=30, topic=REMOTE[1], content=answer)],
+    })
+
+
+def test_a_callback_serves_home_with_the_answer_beside_it_and_replies_there(monkeypatch, tmp_path):
+    runs = wire(monkeypatch, tmp_path)
+    monkeypatch.setattr(listener, "exec_options_for", lambda spec, client: None)
+    delivered = []
+    monkeypatch.setattr(topics, "deliver", lambda client, channel, topic, text, **kw:
+                        delivered.append((channel, topic, text)) or 901)
+    client = callback_realm()
+    listener.handle_mention(client, *REMOTE)
+    (run,) = [r for r in runs if r[0] == "archsage"]
+    assert "study layout established" in run[2] and "pj-aqua › workplan-setup-aqua" in run[2]
+    (reply,) = [d for d in delivered if d[2] != listener.ACK_TEXT]
+    assert reply[:2] == HOME and reply[2].startswith("@**Front**"), "home's requester is handed the answer"
+    assert ("post", "archsage-agstudio1", "study-aqua", "[selfnote][served] pj-aqua/workplan-setup-aqua 30") in client.calls
+
+
+def test_a_resolved_home_is_served_under_its_resolved_name(monkeypatch, tmp_path):
+    runs = wire(monkeypatch, tmp_path)
+    monkeypatch.setattr(listener, "exec_options_for", lambda spec, client: None)
+    delivered = []
+    monkeypatch.setattr(topics, "deliver", lambda client, channel, topic, text, **kw:
+                        delivered.append((channel, topic, text)) or 901)
+    client = callback_realm()
+    client.topics[("archsage-agstudio1", "\u2714 study-aqua")] = client.topics.pop(HOME)
+    listener.handle_mention(client, *REMOTE)
+    assert [r[0] for r in runs].count("archsage") == 1
+    assert all(d[1] == "\u2714 study-aqua" for d in delivered), "no twin under the bare name"
+
+
+def test_a_progress_reply_names_nobody(monkeypatch, tmp_path):
+    runs = wire(monkeypatch, tmp_path)
+    monkeypatch.setattr(listener, "exec_options_for", lambda spec, client: None)
+    monkeypatch.setattr(listener, "run_archsage", lambda prompt, cwd, **kw:
+                        "```ag-reply intent=progress\nStill waiting for autolab.\n```")
+    listener.handle_topic(Client([message(content="establish a study please")]), "archsage-agstudio1", "ask-me")
+    reply = [r[1] for r in runs if r[0] == "reply"][-1]
+    assert reply.startswith("Still waiting for autolab.") and "@**" not in reply
