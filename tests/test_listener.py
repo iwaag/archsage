@@ -17,6 +17,7 @@ from dataclasses import replace
 from agag import topics
 
 from archsage import listener, roles, sages
+from endmark import plain
 
 BOT = 24
 FRONT = 15
@@ -109,7 +110,7 @@ def test_a_direct_sage_request_costs_no_archsage_run(monkeypatch, tmp_path):
     replies = [r[1] for r in runs if r[0] == "reply"]
     # The turn is the asker's again: the reply names them (sage p2 — an agent
     # that asked is called back with the answer).
-    assert replies[-1] == "@**Developer**\n\n**[sage:arxiv]**\narxiv answers"
+    assert plain(replies[-1]) == "@**Developer**\n\n**[sage:arxiv]**\narxiv answers"
 
 
 def test_a_plain_question_is_the_council_s(monkeypatch, tmp_path):
@@ -120,7 +121,7 @@ def test_a_plain_question_is_the_council_s(monkeypatch, tmp_path):
     assert kinds.count("archsage") == 1 and "sage" not in kinds
     _, _, prompt, _ = next(r for r in runs if r[0] == "archsage")
     assert "sage:arxiv" in prompt and "sage:realworld" in prompt  # it sees every tree
-    assert [r[1] for r in runs if r[0] == "reply"][-1] == "@**Developer**\n\nthe council answers"
+    assert plain([r[1] for r in runs if r[0] == "reply"][-1]) == "@**Developer**\n\nthe council answers"
 
 
 def test_an_unknown_sage_is_refused_without_a_run(monkeypatch, tmp_path):
