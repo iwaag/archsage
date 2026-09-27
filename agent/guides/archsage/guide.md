@@ -107,7 +107,9 @@ mission in the study's channel. Write the guide for that reader:
   (a new name, e.g. `refresh-<name>-<the run's id>` — never one fixed topic
   per study, whose answers return to the first request that used it), to
   refresh `sage:<name>` so that it includes the integrated `main` commit
-  the run names, and report the revision;
+  the run names, and report the revision — addressed to archsage itself
+  (`@**archsage**`): a post opening with `sage:<name>` goes to the sage,
+  which reads its tree and cannot refresh it;
 - what the run's report names (workplan topic, scope, files written, the
   `main` commit).
 
