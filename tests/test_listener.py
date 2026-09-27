@@ -70,11 +70,11 @@ def wire(monkeypatch, tmp_path):
 
     def run_sage(sage, prompt, cwd, *, extra_meta=None, selection=None, timeout=None):
         runs.append(("sage", sage.name, prompt, dict(extra_meta or {})))
-        return f"the sage thinks.\n\n```ag-reply\n{sage.name} answers\n```"
+        return f"the sage thinks.\n\n<ag-reply>\n{sage.name} answers\n</ag-reply>"
 
     def run_archsage(prompt, cwd, *, home=None, extra_meta=None, selection=None, timeout=None):
         runs.append(("archsage", None, prompt, dict(extra_meta or {})))
-        return "the council thinks.\n\n```ag-reply\nthe council answers\n```"
+        return "the council thinks.\n\n<ag-reply>\nthe council answers\n</ag-reply>"
 
     monkeypatch.setattr(listener, "run_sage", run_sage)
     monkeypatch.setattr(listener, "run_archsage", run_archsage)
@@ -276,7 +276,7 @@ def test_a_progress_reply_names_nobody(monkeypatch, tmp_path):
     runs = wire(monkeypatch, tmp_path)
     monkeypatch.setattr(listener, "exec_options_for", lambda spec, client: None)
     monkeypatch.setattr(listener, "run_archsage", lambda prompt, cwd, **kw:
-                        "```ag-reply intent=progress\nStill waiting for autolab.\n```")
+                        "<ag-reply intent=progress>\nStill waiting for autolab.\n</ag-reply>")
     listener.handle_topic(Client([message(content="establish a study please")]), "archsage-agstudio1", "ask-me")
     reply = [r[1] for r in runs if r[0] == "reply"][-1]
     assert reply.startswith("Still waiting for autolab.") and "@**" not in reply
