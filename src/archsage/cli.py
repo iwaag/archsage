@@ -23,7 +23,10 @@ What each is for:
 - **`sync`** refreshes a tree after research was integrated. A tree cloned
   from another repository than the definition names is replaced (the old
   one is kept under `.local/replaced-trees/`). A failed refresh leaves the
-  tree where it was and says so.
+  tree where it was and says so. Inside a serving, a refresh (by `sync` or
+  `attach`) is recorded in the conversation served as
+  `[selfnote][sagesync] <sage> <revision> …`: that note, not the reply's
+  words, is what says a study's knowledge was refreshed.
 - Every definition change is **committed and pushed** to the definitions
   store (`archsage store --help`) and the introduction is **re-posted** so
   the sage list others read is current (`--no-intro` skips that).
@@ -116,9 +119,51 @@ def _after_change(sage, what: str, args, out) -> int:
     return code
 
 
+SYNC_TAG = "sagesync"
+
+
+def sync_note(sage, result) -> str:
+    """`[selfnote][sagesync] <sage> <revision> project=<slug> findings=<n>`
+    — the record that a sage's tree was refreshed (progress_panel p1: a
+    study's last step existed only as prose in the reply)."""
+    from agag.selfnote import note
+
+    project = f" project={sage.project}" if getattr(sage, "project", "") else ""
+    return note(SYNC_TAG, f"{sage.name} {result.revision}{project} findings={result.findings}")
+
+
+def _record_sync(sage, result, out) -> None:
+    """Leave the refresh on record in the conversation this run serves.
+
+    A selfnote buys nobody a run. Outside a serving (no `AGENTCHAT_HOME`)
+    there is no conversation to record it in, and nothing is written; a
+    note that cannot be written is said and is not fatal — the tree is
+    refreshed either way."""
+    from agag.chat import client_from_environment
+    from agag.selfnote import home_from_environment
+    from agag.zulip import locate
+
+    home = home_from_environment()
+    if home is None:
+        return
+    try:
+        client = client_from_environment()
+        where = locate(client, home) or home
+        client.send_to_channel(where.channel, where.topic, sync_note(sage, result))
+        print(f"recorded in {where.channel}/{where.topic}: {SYNC_TAG} {sage.name} {result.revision}", file=out)
+    except Exception as error:  # noqa: BLE001 - the refresh stands; its record is said to be missing
+        print(f"warning: the refresh was not recorded in {home.channel}/{home.topic} ({error})", file=out)
+
+
+def _sync(sage, out):
+    result = sync_sage(sage)
+    _record_sync(sage, result, out)
+    return result
+
+
 def _sync_and_say(sage, out) -> None:
     try:
-        print(f"tree: {sync_sage(sage).line()}", file=out)
+        print(f"tree: {_sync(sage, out).line()}", file=out)
     except SageError as error:
         print(f"tree: {error}", file=out)
 
@@ -169,7 +214,7 @@ def cmd_sage_sync(args, out) -> int:
     failed = 0
     for sage in sages:
         try:
-            print(sync_sage(sage).line(), file=out)
+            print(_sync(sage, out).line(), file=out)
         except SageError as error:
             failed += 1
             print(str(error), file=out)

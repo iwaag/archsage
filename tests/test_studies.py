@@ -169,3 +169,36 @@ def test_a_removed_sage_is_moved_aside_and_persisted(tmp_path, root, monkeypatch
     code, out, _ = run(["sage", "remove", "aqua", "--no-intro"])
     assert code == 0 and sages.sage_named("aqua") is None and "kept at" in out
     assert _no_store_no_intro["persist"] == ["Remove sage:aqua"] and _no_store_no_intro["intro"] == 0
+
+
+def test_a_refresh_inside_a_serving_is_recorded_in_the_conversation_served(tmp_path, root, monkeypatch):
+    """progress_panel p1: "knowledge refreshed" is a record, not the reply's
+    prose. Inside a serving the sync leaves `[selfnote][sagesync]` where the
+    run is serving; outside one nothing is written."""
+    bare, work = study_repo(tmp_path, "aqua", SCAFFOLD)
+    sage = sages.add_sage("aqua", "aquaculture", "# guide", study=str(bare), root=root, project="aqua")
+    sent = []
+
+    class Client:
+        def send_to_channel(self, channel, topic, content):
+            sent.append((channel, topic, content))
+            return 1
+
+    import agag.chat
+    import agag.zulip
+
+    monkeypatch.setattr(agag.chat, "client_from_environment", lambda environ=None: Client())
+    monkeypatch.setattr(agag.zulip, "locate", lambda client, home: None)
+    monkeypatch.delenv("AGENTCHAT_HOME", raising=False)
+    out = io.StringIO()
+    cli._sync(sage, out)
+    assert sent == []
+    monkeypatch.setenv("AGENTCHAT_HOME", "archsage-agstudio1/study-aqua")
+    (work / "reports" / "a.md").write_text("# a", encoding="utf-8")
+    commit(work, "a")
+    result = cli._sync(sage, out)
+    assert sent == [("archsage-agstudio1", "study-aqua",
+                     f"[selfnote][sagesync] aqua {result.revision} project=aqua findings={result.findings}")]
+    from agag.trace import RECORD_TAGS
+
+    assert cli.SYNC_TAG in RECORD_TAGS
