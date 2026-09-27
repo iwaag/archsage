@@ -291,6 +291,14 @@ def _origin(tree: Path) -> str:
     return done.stdout.strip() if done.returncode == 0 else ""
 
 
+def includes(tree: Path, commit: str, *, timeout: float = 60) -> bool:
+    """Whether the tree's checked-out revision contains `commit` (it is that
+    commit or a descendant of it): the fact a refresh must establish for the
+    request that needed it (failsafe p5)."""
+    done = _git(tree, "merge-base", "--is-ancestor", commit, "HEAD", timeout=timeout)
+    return done.returncode == 0
+
+
 def sync_sage(sage: Sage, *, timeout: float = 300) -> SyncResult:
     """Clone or fast-forward the sage's tree from its study.
 

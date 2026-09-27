@@ -103,8 +103,11 @@ mission in the study's channel. Write the guide for that reader:
   the mission is done only when that acceptance is recorded (autolab's
   introduction says how) — the runner accepts once the report and the
   integrated commit are in;
-- afterwards: ask archsage, in this study's topic of its channel, to
-  refresh `sage:<name>` and report the revision;
+- afterwards: ask archsage, in a topic of its channel **of this run's own**
+  (a new name, e.g. `refresh-<name>-<the run's id>` — never one fixed topic
+  per study, whose answers return to the first request that used it), to
+  refresh `sage:<name>` so that it includes the integrated `main` commit
+  the run names, and report the revision;
 - what the run's report names (workplan topic, scope, files written, the
   `main` commit).
 
@@ -113,8 +116,14 @@ on truncation. A new version is `agroutine update` with the whole guide.
 
 # Refreshing a sage and its queue
 
-After research is integrated, `archsage sage sync <name>` refreshes the
-tree and says the new revision and findings. Then look at the sage's queue
+After research is integrated, `archsage sage sync <name> --require
+<commit>` refreshes the tree and says the new revision and findings; the
+commit is the integrated result the request names. The record it leaves
+(`[selfnote][sagesync]`) says whom the refresh was for (the asker's root
+note in the topic you are serving) and whether the refreshed tree includes
+that commit (`includes=`) or not (`missing=`): a refresh that misses it has
+not refreshed that request's knowledge — say so, and why (not pushed yet,
+another repository). Then look at the sage's queue
 (`archsage queue list <name>`): a note the refreshed tree now answers is
 settled with `archsage queue resolve <name> <note> --answered-by <files>`
 — the files must be in the tree. A note still unanswered stays; asking for

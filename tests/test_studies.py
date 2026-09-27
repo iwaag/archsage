@@ -202,3 +202,43 @@ def test_a_refresh_inside_a_serving_is_recorded_in_the_conversation_served(tmp_p
     from agag.trace import RECORD_TAGS
 
     assert cli.SYNC_TAG in RECORD_TAGS
+
+
+def test_a_refresh_says_whom_it_was_for_and_whether_it_holds_the_required_result(tmp_path, root, monkeypatch):
+    """failsafe p5 step 5: the refresh names the conversation whose request
+    it answers (the asker's root note in the served topic) and checks, by
+    ancestry in the refreshed tree, the integrated commit that request named."""
+    bare, work = study_repo(tmp_path, "aqua", SCAFFOLD)
+    sage = sages.add_sage("aqua", "aquaculture", "# guide", study=str(bare), root=root, project="aqua")
+    (work / "reports" / "a.md").write_text("# a", encoding="utf-8")
+    commit(work, "a")
+    first = subprocess.run(["git", "rev-parse", "HEAD"], cwd=work, capture_output=True, text=True).stdout.strip()
+    (work / "reports" / "b.md").write_text("# b", encoding="utf-8")
+    commit(work, "b")
+    sent = []
+
+    class Client:
+        def whoami(self):
+            return {"user_id": 24}
+
+        def topic_history(self, channel, topic, num_before=400):
+            return [{"id": 10, "sender_id": 15,
+                     "content": "[selfnote][rootchat] routine-study-aqua/routinerun-20260927T1300Z #700"},
+                    {"id": 11, "sender_id": 15, "content": "@**archsage** refresh sage:aqua to include it"}]
+
+        def send_to_channel(self, channel, topic, content):
+            sent.append(content)
+            return 1
+
+    import agag.chat
+    import agag.zulip
+
+    monkeypatch.setattr(agag.chat, "client_from_environment", lambda environ=None: Client())
+    monkeypatch.setattr(agag.zulip, "locate", lambda client, home: None)
+    monkeypatch.setenv("AGENTCHAT_HOME", "archsage-agstudio1/refresh-aqua-1300")
+    out = io.StringIO()
+    result = cli._sync(sage, out, first)
+    assert sent[-1] == (f"[selfnote][sagesync] aqua {result.revision} project=aqua findings={result.findings} "
+                        f"for=routine-study-aqua/routinerun-20260927T1300Z#700 includes={first}")
+    cli._sync(sage, out, "0" * 40)
+    assert sent[-1].endswith(f"missing={'0' * 40}") and "does NOT include" in out.getvalue()

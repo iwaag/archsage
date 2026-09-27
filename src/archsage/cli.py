@@ -4,7 +4,7 @@
     archsage sage add <name> --about "…" --guide-file <path> [--project <slug> [--source main|publish] [--repository <url>]]
     archsage sage update <name> [--about "…"] [--guide-file <path>]
     archsage sage attach <name> --project <slug> [--source main|publish] [--repository <url>]
-    archsage sage sync [<name>]
+    archsage sage sync [<name> [--require <commit>]]
     archsage sage remove <name>
     archsage ask <name> "<question>"
     archsage queue list [<name>] | show <name> <note> | resolve <name> <note> --answered-by <path>…
@@ -53,7 +53,8 @@ from . import store
 from .instance import SPEC
 from .queue import note_path, resolve_note
 from .roles import RoleError, run_sage, sage_context
-from .sages import SOURCES, SageError, add_sage, attach_study, load_sages, remove_sage, sage_named, sync_sage, update_sage
+from .sages import (SOURCES, SageError, add_sage, attach_study, includes, load_sages, remove_sage, sage_named,
+                    sync_sage, update_sage)
 
 ASK_CHANNEL = "archsage-internal"
 
@@ -122,17 +123,43 @@ def _after_change(sage, what: str, args, out) -> int:
 SYNC_TAG = "sagesync"
 
 
-def sync_note(sage, result) -> str:
-    """`[selfnote][sagesync] <sage> <revision> project=<slug> findings=<n>`
-    — the record that a sage's tree was refreshed (progress_panel p1: a
-    study's last step existed only as prose in the reply)."""
+def sync_note(sage, result, *, asked_for: str = "", required: str = "", included: bool | None = None) -> str:
+    """`[selfnote][sagesync] <sage> <revision> project=<slug> findings=<n>
+    [for=<channel>/<topic>#<anchor>] [includes=<commit>|missing=<commit>]`
+    — the record that a sage's tree was refreshed (progress_panel p1), and
+    since failsafe p5 **for whom** (the conversation whose request this
+    serving answers) and **whether it holds the result** that request needed
+    (the integrated commit it named, checked by ancestry in the tree)."""
     from agag.selfnote import note
 
     project = f" project={sage.project}" if getattr(sage, "project", "") else ""
-    return note(SYNC_TAG, f"{sage.name} {result.revision}{project} findings={result.findings}")
+    value = f"{sage.name} {result.revision}{project} findings={result.findings}"
+    if asked_for:
+        value += f" for={asked_for}"
+    if required:
+        value += f" {'includes' if included else 'missing'}={required}"
+    return note(SYNC_TAG, value)
 
 
-def _record_sync(sage, result, out) -> None:
+def asked_for(client, home) -> str:
+    """The conversation this serving's request came from: the asker's root
+    note in the home topic (`<channel>/<topic>#<anchor>`), or "" when the
+    topic was opened by hand. Read, never inferred from names."""
+    from agag.selfnote import parse_rootchat
+
+    try:
+        history = client.topic_history(home.channel, home.topic, num_before=400)
+        self_id = int(client.whoami()["user_id"])
+    except Exception:  # noqa: BLE001 - the relation is said to be unknown
+        return ""
+    for message in history:
+        found = parse_rootchat(message.get("content")) if message.get("sender_id") != self_id else None
+        if found is not None:
+            return f"{found.channel}/{found.topic}" + (f"#{found.anchor}" if found.anchor else "")
+    return ""
+
+
+def _record_sync(sage, result, out, *, required: str = "", included: bool | None = None) -> None:
     """Leave the refresh on record in the conversation this run serves.
 
     A selfnote buys nobody a run. Outside a serving (no `AGENTCHAT_HOME`)
@@ -149,15 +176,20 @@ def _record_sync(sage, result, out) -> None:
     try:
         client = client_from_environment()
         where = locate(client, home) or home
-        client.send_to_channel(where.channel, where.topic, sync_note(sage, result))
-        print(f"recorded in {where.channel}/{where.topic}: {SYNC_TAG} {sage.name} {result.revision}", file=out)
+        text = sync_note(sage, result, asked_for=asked_for(client, where), required=required, included=included)
+        client.send_to_channel(where.channel, where.topic, text)
+        print(f"recorded in {where.channel}/{where.topic}: {text.split('] ', 1)[-1]}", file=out)
     except Exception as error:  # noqa: BLE001 - the refresh stands; its record is said to be missing
         print(f"warning: the refresh was not recorded in {home.channel}/{home.topic} ({error})", file=out)
 
 
-def _sync(sage, out):
+def _sync(sage, out, required: str = ""):
     result = sync_sage(sage)
-    _record_sync(sage, result, out)
+    included = includes(sage.tree, required) if required else None
+    if required:
+        print(f"{sage.name} at {result.revision} " + ("includes" if included else "does NOT include")
+              + f" {required}", file=out)
+    _record_sync(sage, result, out, required=required, included=included)
     return result
 
 
@@ -211,10 +243,13 @@ def cmd_sage_remove(args, out) -> int:
 
 def cmd_sage_sync(args, out) -> int:
     sages = [_sage(args.name)] if args.name else load_sages()
+    if args.require and len(sages) != 1:
+        print("--require names the result one sage's refresh must include: give the sage", file=out)
+        return 1
     failed = 0
     for sage in sages:
         try:
-            print(_sync(sage, out).line(), file=out)
+            print(_sync(sage, out, args.require or "").line(), file=out)
         except SageError as error:
             failed += 1
             print(str(error), file=out)
@@ -313,6 +348,9 @@ def build_parser() -> argparse.ArgumentParser:
     remove.set_defaults(run=cmd_sage_remove)
     sync = sage_sub.add_parser("sync", help="clone or fast-forward the trees (replaces a tree from another repository)")
     sync.add_argument("name", nargs="?", default=None)
+    sync.add_argument("--require", default=None, metavar="COMMIT",
+                      help="the integrated commit the request needs the refreshed tree to include (recorded as "
+                           "includes= or missing=)")
     sync.set_defaults(run=cmd_sage_sync)
     ask = sub.add_parser("ask", help="run one sage now and print its answer")
     ask.add_argument("name")
