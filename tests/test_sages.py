@@ -89,3 +89,22 @@ def test_an_archsage_run_records_every_tree_s_revision(tmp_path, monkeypatch):
     assert seen["role"] == "archsage"
     assert seen["meta"]["speaker"] == "archsage"
     assert seen["meta"]["knowledge_revisions"] == {"arxiv": "unavailable", "realworld": "empty"}
+
+
+def test_the_introduction_prints_no_findings_state(monkeypatch):
+    """agent_guide p1: the introduction is re-posted on a definition change,
+    not on `sage sync`, so "no findings yet" stayed on the board after two
+    accepted research rounds. It prints only what a definition decides."""
+    from types import SimpleNamespace
+
+    from archsage import intro
+
+    empty = SimpleNamespace(selector="sage:new", about="a fresh study", study="pj-new", project="new",
+                            has_knowledge=lambda: False, findings=lambda: [])
+    loose = SimpleNamespace(selector="sage:loose", about="nothing attached", study="", project="",
+                            has_knowledge=lambda: False, findings=lambda: [])
+    monkeypatch.setattr(intro, "load_sages", lambda: [empty, loose])
+    lines = intro.sages_lines()
+    assert "no findings" not in lines
+    assert "- `sage:new` — a fresh study *(study `new`)*" in lines
+    assert "*(no study attached yet)*" in lines

@@ -16,14 +16,19 @@ from .sages import load_sages
 
 
 def sages_lines() -> str:
+    """One line per sage: its selector, what it knows about, and the study it
+    reads. Only what changes with a definition is rendered — the introduction
+    is re-posted on define/update/attach/remove, not on `sage sync`, so a
+    findings state printed here went stale the moment research landed
+    (`agent_guide` p1: "no findings yet" after two accepted rounds, and a
+    Front run that read it had nothing to look for). How far a study got is
+    read where it lives: the study's channel and `agproject status`."""
     sages = load_sages()
     if not sages:
         return "- (no sages defined yet)"
     def state(sage) -> str:
         if not sage.study:
             return " *(no study attached yet)*"
-        if not sage.has_knowledge() or not sage.findings():
-            return f" *(study `{sage.project or '?'}`: no findings yet)*"
         return f" *(study `{sage.project}`)*" if sage.project else ""
 
     return "\n".join(f"- `{sage.selector}` — {sage.about}{state(sage)}" for sage in sages)
