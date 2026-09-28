@@ -178,26 +178,44 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sagetree", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    ls = sub.add_parser("ls", help="entries of a directory in the tree")
+    ls = sub.add_parser("ls", help="entries of a directory in the tree",
+                        description="Directories first (with a trailing /), then files. An empty tree says so: "
+                                    "no study knowledge is attached or synced yet.")
     ls.add_argument("path", nargs="?", default=".")
     ls.set_defaults(run=cmd_ls)
-    cat = sub.add_parser("cat", help="print files with line numbers")
+    cat = sub.add_parser("cat", help="print files with line numbers",
+                         description=f"Print files with line numbers (the first {MAX_CAT_BYTES} bytes of each). "
+                                     "Cite what you used by its path in the tree.")
     cat.add_argument("paths", nargs="+")
     cat.set_defaults(run=cmd_cat)
-    grep = sub.add_parser("grep", help="lines matching a regular expression")
+    grep = sub.add_parser("grep", help="lines matching a regular expression",
+                          description=f"`<path>:<line>:<text>` for each matching line under a path (the root by "
+                                      f"default), at most {MAX_GREP_LINES}; `(no match)` when none.")
     grep.add_argument("pattern")
     grep.add_argument("path", nargs="?", default=".")
     grep.add_argument("-i", "--ignore-case", action="store_true")
     grep.set_defaults(run=cmd_grep)
-    find = sub.add_parser("find", help="files matching a glob under the tree")
+    find = sub.add_parser("find", help="files matching a glob under the tree",
+                          description="Tree-relative paths of the files matching a glob, e.g. "
+                                      "'reports/*.md' or '**/summary.md'.")
     find.add_argument("glob")
     find.set_defaults(run=cmd_find)
-    revision = sub.add_parser("revision", help="the tree's git revision")
+    revision = sub.add_parser("revision", help="the tree's git revision",
+                              description="The revision to cite your answer with, or `empty` when no study "
+                                          "knowledge is synced.")
     revision.set_defaults(run=cmd_revision)
     queue = sub.add_parser("queue", help="the study queue: what this sage could not answer")
     queue_sub = queue.add_subparsers(dest="queue_command", required=True)
-    queue_sub.add_parser("list", help="the notes in the queue")
-    add = queue_sub.add_parser("add", help="create a note, or append to one with this slug")
+    queue_sub.add_parser("list", help="the notes in the queue",
+                         description="`<slug>: <first line>` per note; look before adding, so a question already "
+                                     "queued is appended to rather than asked twice.")
+    add = queue_sub.add_parser(
+        "add", help="create a note, or append to one with this slug",
+        description=("Queue a question the tree does not answer and a study run could: the question as it was "
+                     "asked, why it is in your domain, what the run should look for. A slug that exists gets the "
+                     "text appended. archsage reads the queue when it plans research and removes a note only once "
+                     "the refreshed tree answers it. The queue is the one place you write; the tree is never "
+                     "edited."))
     add.add_argument("slug")
     add.add_argument("text", nargs="+")
     queue.set_defaults(run=cmd_queue)

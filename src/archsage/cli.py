@@ -314,11 +314,26 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sage = sub.add_parser("sage", help="list, show, add, update, attach or sync sages")
     sage_sub = sage.add_subparsers(dest="sage_command", required=True)
-    sage_sub.add_parser("list", help="every sage, its tree and its study").set_defaults(run=cmd_sage_list)
-    show = sage_sub.add_parser("show", help="one sage in full")
+    sage_sub.add_parser(
+        "list", help="every sage, its tree and its study",
+        description=("One line per sage: `sage:<name>`, its one line, then [its tree's revision and how many "
+                     "knowledge files it holds — `no findings yet` when only the plan, READMEs and indexes are "
+                     "there, `empty tree` when nothing is synced; how many questions its queue holds] and its "
+                     "study (`pj-<slug>`, main or publish), or `no study attached`. A read.")
+    ).set_defaults(run=cmd_sage_list)
+    show = sage_sub.add_parser(
+        "show", help="one sage in full",
+        description="One sage: its one line, study and source, tree path and state, queue size and guide file. A read.")
     show.add_argument("name")
     show.set_defaults(run=cmd_sage_show)
-    add = sage_sub.add_parser("add", help="define a new sage (optionally already attached to a study)")
+    add = sage_sub.add_parser(
+        "add", help="define a new sage (optionally already attached to a study)",
+        description=("Define a sage for a domain nobody covers: its one line (--about) and its domain guide — what "
+                     "it knows, how it answers, what it queues. With --project it is attached to that study at once "
+                     "and its tree synced (the same as `attach`); without, its tree is empty and it says so when "
+                     "asked. Prints where it was defined, the tree's revision and findings, then the definitions "
+                     "store commit and whether the introduction was re-posted. A name already defined is refused: "
+                     "`update` or `attach` it instead."))
     add.add_argument("name")
     add.add_argument("--about", required=True, help="one line about the domain")
     add.add_argument("--guide-file", default=None, help="the domain guide, as a file")
@@ -328,47 +343,103 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--repository", default="", help="the repository to clone (default for main: the study's internal one)")
     add.add_argument("--no-intro", action="store_true")
     add.set_defaults(run=cmd_sage_add)
-    update = sage_sub.add_parser("update", help="change a sage's one line and/or its guide")
+    update = sage_sub.add_parser(
+        "update", help="change a sage's one line and/or its guide",
+        description=("Replace the sage's one line and/or its domain guide (the whole file). Its tree and study are "
+                     "untouched (that is `attach`). Committed to the definitions store; the introduction is "
+                     "re-posted."))
     update.add_argument("name")
-    update.add_argument("--about", default=None)
-    update.add_argument("--guide-file", default=None)
-    update.add_argument("--no-intro", action="store_true")
+    update.add_argument("--about", default=None, help="the new one line about the domain")
+    update.add_argument("--guide-file", default=None, help="the new domain guide, whole")
+    update.add_argument("--no-intro", action="store_true", help="do not re-post the introduction")
     update.set_defaults(run=cmd_sage_update)
-    attach = sage_sub.add_parser("attach", help="point an existing sage at a study's knowledge and sync it")
+    attach = sage_sub.add_parser(
+        "attach", help="point an existing sage at a study's knowledge and sync it",
+        description=("Point a sage at a study (`pj-<slug>`) and sync its tree at once: `main` is the study's "
+                     "internal knowledge repository, current as soon as research is integrated; `publish` is a "
+                     "public repository the developer supplied, which lags behind their review. A tree cloned from "
+                     "another repository is replaced (the old one is kept aside). Prints the old and new source, "
+                     "the tree's revision and findings, the store commit and the introduction re-post. Inside a "
+                     "serving the sync is recorded as `[selfnote][sagesync]`, as with `sync`."))
     attach.add_argument("name")
     attach.add_argument("--project", required=True, help="the study's slug")
     attach.add_argument("--source", choices=SOURCES, default="main",
                         help="main: the internal knowledge repository (default); publish: a public repository")
     attach.add_argument("--repository", default="", help="required for publish; default for main is the study's own")
-    attach.add_argument("--no-intro", action="store_true")
+    attach.add_argument("--no-intro", action="store_true", help="do not re-post the introduction")
     attach.set_defaults(run=cmd_sage_attach)
-    remove = sage_sub.add_parser("remove", help="retire a sage (its directory is moved aside, not deleted)")
+    remove = sage_sub.add_parser(
+        "remove", help="retire a sage (its directory is moved aside, not deleted)",
+        description=("Retire a sage: its directory moves to `.local/removed-sages/` (nothing is deleted), the "
+                     "removal is committed to the definitions store, and the introduction is re-posted without it."))
     remove.add_argument("name")
-    remove.add_argument("--no-intro", action="store_true")
+    remove.add_argument("--no-intro", action="store_true", help="do not re-post the introduction")
     remove.set_defaults(run=cmd_sage_remove)
-    sync = sage_sub.add_parser("sync", help="clone or fast-forward the trees (replaces a tree from another repository)")
+    sync = sage_sub.add_parser(
+        "sync", help="clone or fast-forward the trees (replaces a tree from another repository)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(
+            "Refresh a sage's tree from its study (all sages without a name), after research was integrated. It\n"
+            "prints `<sage> at <revision> includes|does NOT include <commit>` when --require names one, then the\n"
+            "tree's revision and findings. A failed refresh leaves the tree where it was and says so (exit 1).\n"
+            "\n"
+            "Inside a serving the refresh is recorded in the conversation served:\n"
+            "\n"
+            "  [selfnote][sagesync] <sage> <revision> project=<slug> findings=<n>\n"
+            "      for=<channel>/<topic>#<anchor>  includes=<commit> | missing=<commit>\n"
+            "\n"
+            "`for=` is the conversation whose request this refresh answers (the asker's root note in the topic\n"
+            "you serve). `includes=` says the refreshed tree holds the commit the request named; `missing=` says\n"
+            "it does not — that request's knowledge was NOT refreshed, whatever the revision moved to: say so\n"
+            "and why (not pushed yet, another repository). The note is the record; saying in your reply that\n"
+            "the sage is refreshed records nothing (the progress panel and the requester read the note).\n"
+            "Outside a serving nothing is recorded.\n"
+            "\n"
+            "  archsage sage sync growbox --require 9d34067f5c0a"))
     sync.add_argument("name", nargs="?", default=None)
     sync.add_argument("--require", default=None, metavar="COMMIT",
                       help="the integrated commit the request needs the refreshed tree to include (recorded as "
-                           "includes= or missing=)")
+                           "includes= or missing=); needs a sage name")
     sync.set_defaults(run=cmd_sage_sync)
-    ask = sub.add_parser("ask", help="run one sage now and print its answer")
+    ask = sub.add_parser(
+        "ask", help="run one sage now and print its answer",
+        description=("Consult a sage from inside your own run: it answers from its tree only, on the ordinary "
+                     "model (not yours), and says when the tree does not answer. The answer is printed under its "
+                     "header; the run is recorded under `.local/agent/sage/`. Nothing is posted: quote what you "
+                     "use. Posting `sage:<name>` in a topic would not reach it from your run (a post of this "
+                     "account wakes no other role of it)."))
     ask.add_argument("name")
     ask.add_argument("question", nargs="+")
     ask.set_defaults(run=cmd_ask)
     queue = sub.add_parser("queue", help="the sages' study queues")
     queue_sub = queue.add_subparsers(dest="queue_command", required=True)
-    listing = queue_sub.add_parser("list", help="the queued notes, per sage")
+    listing = queue_sub.add_parser(
+        "list", help="the queued notes, per sage",
+        description=("Per sage, the questions it was asked and its tree could not answer: `<note>: <first line>`. "
+                     "They are research questions somebody already has; carry the ones that fit into a research "
+                     "plan or a routine request. A read."))
     listing.add_argument("name", nargs="?", default=None)
-    note = queue_sub.add_parser("show", help="one note in full")
+    note = queue_sub.add_parser("show", help="one note in full",
+                                description="One queued note, whole: the question as asked, why it is the sage's, "
+                                            "what a study run should look for. A read.")
     note.add_argument("name")
     note.add_argument("note")
-    resolve = queue_sub.add_parser("resolve", help="remove a note the refreshed tree now answers")
+    resolve = queue_sub.add_parser(
+        "resolve", help="remove a note the refreshed tree now answers",
+        description=("Settle a queued note because files in the sage's refreshed tree now answer it. Every path in "
+                     "--answered-by must exist in the tree at its current revision, or nothing changes (refresh it "
+                     "first). The note leaves the queue and the settlement is logged with the revision in "
+                     "`.local/queue-resolved.jsonl`. Asking for research is not an answer: a note still unanswered "
+                     "stays."))
     resolve.add_argument("name")
     resolve.add_argument("note")
     resolve.add_argument("--answered-by", nargs="+", required=True, help="paths in the sage's tree that answer it")
     queue.set_defaults(run=cmd_queue)
-    sub.add_parser("intro", help="(re-)post the introduction with the current sage list").set_defaults(run=cmd_intro)
+    sub.add_parser(
+        "intro", help="(re-)post the introduction with the current sage list",
+        description=("Post archsage's introduction to `#agents` with the current sage list. Definition changes "
+                     "(add, update, attach, remove) do it by themselves; `sync` and a listener restart do not.")
+    ).set_defaults(run=cmd_intro)
     store_parser = sub.add_parser("store", help="the sage definitions store (status, restore)",
                                   description=store.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     store_sub = store_parser.add_subparsers(dest="store_command", required=True)
