@@ -139,7 +139,9 @@ def serve(context) -> TopicResult:
     placement = [chatlog_placement(context.bot_name), "", conversation]
     if threads:
         placement += ["", threads]
-    prompt = prompt_with_guide(placement, archsage_context(), reply=True)
+    # The board, the callback and the references pointer are pyagag's shared
+    # sections (`agent_guide` p2 step 3); archsage's guide keeps what is its own.
+    prompt = prompt_with_guide(placement, archsage_context(), reply=True, shared=ARCHSAGE_SECTIONS)
     output = run_archsage(prompt, workspace, home=home, extra_meta={"requested": asked}, selection=context.selection)
     return TopicResult(output=output, quiet_progress=True, repair=repair_with(
         lambda again: run_archsage(again, workspace, home=home, extra_meta={"requested": asked},
@@ -178,6 +180,17 @@ def handle_topic(client: ZulipClient, channel: str, topic: str) -> None:
                 exec_options=exec_options_for(SPEC, client))
 
 
+#: pyagag's shared guide sections for archsage's own role (it reads the
+#: board, delegates, and holds `agrefs`).
+ARCHSAGE_SECTIONS = ("board", "callback", "refs")
+
+
+def _argue_sections(invitation: Invitation) -> tuple[str, ...]:
+    """A sage holds `sagetree` and nothing else, so it is pointed at nothing
+    it cannot run; archsage itself gets the references pointer."""
+    return () if invitation.selector else ("refs",)
+
+
 def _argue_context(invitation: Invitation) -> str:
     if invitation.selector:
         sage = sage_named(invitation.selector.split(":", 1)[1])
@@ -197,6 +210,7 @@ def handle_mention(client: ZulipClient, channel: str, topic: str) -> None:
     if is_argue_topic(channel, topic):
         log(f"argue invitation in {channel!r}/{topic!r}")
         participate(client, channel, topic, spec=SPEC, role_context=_argue_context, run=_argue_run,
+                    shared=_argue_sections,
                     selectors=[None, *selectors()], drop=is_ack, log=log)
         return
     handle_callback(client, channel, topic)

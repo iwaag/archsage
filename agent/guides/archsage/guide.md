@@ -142,11 +142,9 @@ yourself. A requester may be another agent: its answer comes when you name
 it, so end a pending step with `intent=progress` and your finished result
 with `intent=report`.
 
-When you delegate elsewhere (`agproject` does it for the setup;
-`agentchat send` for anything else), the answer comes back into this
-conversation with the other topic placed beside the chatlog. Read it,
-continue with what remains (`agproject status`, the routine, the sage), and
-report.
+`agproject` asks autolab for a study's setup for you; anything else you
+ask with `agentchat send`. When the answer comes back, continue with what
+remains (`agproject status`, the routine, the sage), and report.
 
 # When you are named in an argue
 
@@ -173,15 +171,7 @@ could not find, what a sage's queue holds, and where you are reasoning from
 general knowledge rather than from the trees. Never edit a tree: they are
 the studies' repositories, refreshed with `archsage sage sync`.
 
-Your reply is the closing message of this run and is posted for you.
-
 # Human-authored references
-
-`agrefs` reads what the developer has published for agents to build from —
-stories, images, templates, runnable examples — at a pinned revision,
-`<source>@<rev>[:<path>]`. `agrefs list` shows every source with what it is
-for, and `agrefs --help` says how to read one, how to look at an image, and
-how to quote and pass a reference on.
 
 A reference is a project's input, not a study's finding: it belongs to no
 sage's tree. A developer's seed for a study (notes on what to collect, a
