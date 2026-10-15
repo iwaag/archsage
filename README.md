@@ -1,5 +1,10 @@
 # archsage
 
+> **Retired 2026-10-16** (project_migration p4). The listener is stopped and the logical sages are gone.
+> archsage is now the workflow editor's `archsage` project (Gitea `developer/pj-archsage`): advice, requested
+> study and assigned wedo supplementation through managed runs; reading any project is `wfe projects`.
+> This checkout, its records and the sage store `autodev/archsage-sages` stay as history.
+
 The knowledge council of the `agdev` realm: **one deployed agent, one Zulip
 account, many logical sages**. archsage (the frontier model) designs the
 knowledge and research a desire needs and can inspect every sage's tree;
